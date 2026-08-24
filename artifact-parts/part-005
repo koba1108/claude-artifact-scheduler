@@ -1,0 +1,294 @@
+            <span class="color-chip"><span class="color-swatch" style="--swatch:${color.value}"></span>${color.label}</span>
+          `;
+          elements.colorList.append(label);
+        }
+      }
+
+      function openEventModal(event = null) {
+        const editing = Boolean(event);
+        elements.eventModalTitle.textContent = editing ? "予定を編集" : "予定を追加";
+        elements.eventId.value = event?.id || "";
+        elements.eventDate.value = event?.date || state.selectedDate;
+        elements.eventDate.min = `${state.currentMonth}-01`;
+        elements.eventDate.max = `${state.currentMonth}-${String(daysInMonth(state.currentMonth)).padStart(2, "0")}`;
+        const allDay = editing ? !event.start : false;
+        elements.eventAllDay.checked = allDay;
+        elements.eventStart.value = event?.start || "";
+        elements.eventEnd.value = event?.end || "";
+        elements.eventTitle.value = event?.title || "";
+        elements.eventMemo.value = event?.memo || "";
+        elements.deleteEvent.hidden = !editing;
+        elements.eventFormError.textContent = "";
+        renderColorOptions(event?.color || "blue");
+        updateTimeFields();
+        openModal(elements.eventModal);
+        requestAnimationFrame(() => elements.eventTitle.focus());
+      }
+
+      function updateTimeFields() {
+        const disabled = elements.eventAllDay.checked;
+        elements.eventStart.disabled = disabled;
+        elements.eventEnd.disabled = disabled;
+      }
+
+      function selectedColor() {
+        return document.querySelector('input[name="event-color"]:checked')?.value || "blue";
+      }
+
+      function findEvent(id) {
+        return state.monthData.events.find((event) => event.id === id) || null;
+      }
+
+      function validateEventForm() {
+        const title = elements.eventTitle.value.trim();
+        const date = elements.eventDate.value;
+        if (!title) return "タイトルを入力してください。";
+        if (!date || !date.startsWith(`${state.currentMonth}-`)) return "表示中の月の日付を選択してください。";
+        if (!elements.eventAllDay.checked) {
+          const start = elements.eventStart.value || null;
+          const end = elements.eventEnd.value || null;
+          if (end && !start) return "終了時刻を指定する場合は開始時刻も入力してください。";
+          if (start && end && end <= start) return "終了時刻は開始時刻より後にしてください。";
+        }
+        return "";
+      }
+
+      function saveEventFromForm() {
+        const error = validateEventForm();
+        elements.eventFormError.textContent = error;
+        if (error) return;
+
+        const id = elements.eventId.value || uuid();
+        const current = findEvent(id);
+        const now = Date.now();
+        const allDay = elements.eventAllDay.checked;
+        const event = {
+          id,
+          date: elements.eventDate.value,
+          start: allDay ? null : elements.eventStart.value || null,
+          end: allDay ? null : elements.eventEnd.value || null,
+          title: elements.eventTitle.value.trim(),
+          memo: elements.eventMemo.value.trim(),
+          color: selectedColor(),
+          createdAt: current?.createdAt || now,
+          updatedAt: now,
+          deleted: false
+        };
+        state.selectedDate = event.date;
+        enqueueEvent(event);
+        closeModal(elements.eventModal);
+        showToast(current ? "予定を更新しました。" : "予定を追加しました。");
+      }
+
+      function deleteCurrentEvent() {
+        const id = elements.eventId.value;
+        const current = findEvent(id);
+        if (!current) return;
+        if (!window.confirm(`「${current.title}」を削除しますか？`)) return;
+        enqueueEvent({ ...current, updatedAt: Date.now(), deleted: true });
+        closeModal(elements.eventModal);
+        showToast("予定を削除しました。30日後に完全削除されます。");
+      }
+
+      async function saveMeta() {
+        const result = await getStorageValue(META_KEY);
+        if (!result.ok) throw result.error;
+        let remote = emptyMeta();
+        if (result.found) {
+          try {
+            remote = normalizeMeta(parseStorageValue(result.value));
+          } catch (error) {
+            console.warn("Remote meta ignored", error);
+          }
+        }
+        const next = {
+          ...remote,
+          ...state.meta,
+          schemaVersion: SCHEMA_VERSION
+        };
+        await setStorageValue(META_KEY, JSON.stringify(next));
+        state.meta = next;
+      }
+
+      async function saveDeviceName() {
+        const name = elements.deviceName.value.trim().slice(0, 40);
+        elements.saveDeviceName.disabled = true;
+        elements.settingsStatus.textContent = "ラベルを保存中…";
+        try {
+          state.sessionDeviceName = name;
+          state.meta.deviceName = name || null;
+          await saveMeta();
+          elements.settingsStatus.textContent = "ラベルを保存しました。次回以降の更新元に使用します。";
+          renderSync();
+        } catch (error) {
+          elements.settingsStatus.textContent = `ラベルの保存に失敗しました。${error?.message || ""}`;
+        } finally {
+          elements.saveDeviceName.disabled = false;
+        }
+      }
+
+      async function listScheduleKeys() {
+        const result = await storage.list(APP_PREFIX);
+        if (result == null || !Array.isArray(result.keys)) throw new Error("window.storage.list の結果が不正です");
+        return result.keys.filter((key) => typeof key === "string" && key.startsWith(APP_PREFIX)).sort();
+      }
+
+      async function exportBackup() {
+        elements.exportData.disabled = true;
+        elements.copyExport.disabled = true;
+        elements.settingsStatus.textContent = "バックアップを作成中…";
+        try {
+          const saved = await flushPending();
+          if (!saved) throw new Error("未保存データの保存に失敗しました");
+          const keys = await listScheduleKeys();
+          const values = {};
+          for (const key of keys) {
+            const result = await getStorageValue(key);
+            if (!result.ok) throw result.error;
+            if (result.found && typeof result.value === "string") values[key] = result.value;
+          }
+          const exportedAt = Date.now();
+          state.meta.lastBackupAt = exportedAt;
+          await saveMeta();
+          values[META_KEY] = JSON.stringify(state.meta);
+          const backup = {
+            format: "claude-artifact-scheduler-backup",
+            schemaVersion: SCHEMA_VERSION,
+            exportedAt,
+            values
+          };
+          elements.exportOutput.value = JSON.stringify(backup, null, 2);
+          elements.copyExport.disabled = false;
+          elements.settingsStatus.textContent = `${Object.keys(values).length}キーをエクスポートしました。`;
+        } catch (error) {
+          console.error("Export failed", error);
+          elements.settingsStatus.textContent = `エクスポートに失敗しました。${error?.message || ""}`;
+        } finally {
+          elements.exportData.disabled = false;
+        }
+      }
+
+      async function copyExport() {
+        const text = elements.exportOutput.value;
+        if (!text) return;
+        try {
+          await navigator.clipboard.writeText(text);
+          elements.settingsStatus.textContent = "バックアップJSONをコピーしました。";
+        } catch (error) {
+          elements.exportOutput.focus();
+          elements.exportOutput.select();
+          const copied = document.execCommand("copy");
+          elements.settingsStatus.textContent = copied
+            ? "バックアップJSONをコピーしました。"
+            : "自動コピーできませんでした。テキストを選択してコピーしてください。";
+        }
+      }
+
+      function parseImportedMonthValue(value, month) {
+        const raw = typeof value === "string" ? parseStorageValue(value) : value;
+        return normalizeMonthData(raw, month);
+      }
+
+      async function importBackup() {
+        const source = elements.importInput.value.trim();
+        if (!source) {
+          elements.settingsStatus.textContent = "インポートするJSONを貼り付けてください。";
+          return;
+        }
+
+        let backup;
+        try {
+          backup = JSON.parse(source);
+        } catch (error) {
+          elements.settingsStatus.textContent = "JSONとして読み込めませんでした。";
+          return;
+        }
+
+        if (backup?.format !== "claude-artifact-scheduler-backup" || backup.schemaVersion !== SCHEMA_VERSION || !backup.values || typeof backup.values !== "object") {
+          elements.settingsStatus.textContent = "このアプリのバックアップ形式ではありません。";
+          return;
+        }
+
+        const monthEntries = Object.entries(backup.values).filter(([key]) => MONTH_KEY_PATTERN.test(key));
+        if (!monthEntries.length) {
+          elements.settingsStatus.textContent = "インポート対象の月データがありません。";
+          return;
+        }
+        if (!window.confirm(`${monthEntries.length}か月分を既存データへマージしますか？`)) return;
+
+        elements.importData.disabled = true;
+        elements.settingsStatus.textContent = "インポート中…";
+        try {
+          const saved = await flushPending();
+          if (!saved) throw new Error("未保存データの保存に失敗しました");
+
+          let importedCount = 0;
+          for (const [key, value] of monthEntries) {
+            const month = MONTH_KEY_PATTERN.exec(key)[1];
+            const imported = parseImportedMonthValue(value, month);
+            const remote = await prepareRemoteMonth(month);
+            const mergedEvents = cleanTombstones(mergeEvents(remote.events, imported.events));
+            const latest = Math.max(remote.updatedAt || 0, imported.updatedAt || 0, Date.now());
+            const next = {
+              schemaVersion: SCHEMA_VERSION,
+              updatedAt: latest,
+              updatedBy: deviceLabel(),
+              events: mergedEvents
+            };
+            await setStorageValue(key, JSON.stringify(next));
+            importedCount += 1;
+            elements.settingsStatus.textContent = `インポート中… ${importedCount}/${monthEntries.length}`;
+            await new Promise((resolve) => setTimeout(resolve, 60));
+          }
+
+          await loadMonth(state.currentMonth, { preserveDate: true });
+          elements.settingsStatus.textContent = `${importedCount}か月分をマージしました。`;
+          showToast("バックアップをインポートしました。");
+        } catch (error) {
+          console.error("Import failed", error);
+          elements.settingsStatus.textContent = `インポートに失敗しました。${error?.message || ""}`;
+        } finally {
+          elements.importData.disabled = false;
+        }
+      }
+
+      function openSettingsModal() {
+        elements.deviceName.value = state.sessionDeviceName || state.meta.deviceName || "";
+        elements.settingsStatus.textContent = state.meta.lastBackupAt
+          ? `前回のバックアップ: ${formatShortTimestamp(state.meta.lastBackupAt)}`
+          : "";
+        openModal(elements.settingsModal);
+      }
+
+      function showToast(message) {
+        clearTimeout(state.toastTimer);
+        elements.toast.textContent = message;
+        elements.toast.hidden = false;
+        state.toastTimer = setTimeout(() => {
+          elements.toast.hidden = true;
+        }, 2600);
+      }
+
+      function bindEvents() {
+        elements.prevMonth.addEventListener("click", () => void switchMonth(addMonths(state.currentMonth, -1)));
+        elements.nextMonth.addEventListener("click", () => void switchMonth(addMonths(state.currentMonth, 1)));
+        elements.reload.addEventListener("click", () => void reloadCurrentMonth("manual"));
+        elements.retrySave.addEventListener("click", () => void flushPending());
+        elements.goToday.addEventListener("click", () => {
+          if (state.currentMonth === initialMonth) {
+            state.selectedDate = today;
+            renderCalendar();
+            renderDay();
+          } else {
+            void switchMonth(initialMonth);
+          }
+        });
+        elements.addEvent.addEventListener("click", () => openEventModal());
+        elements.openSettings.addEventListener("click", openSettingsModal);
+        elements.eventAllDay.addEventListener("change", updateTimeFields);
+        elements.eventForm.addEventListener("submit", (event) => {
+          event.preventDefault();
+          saveEventFromForm();
+        });
+        elements.deleteEvent.addEventListener("click", deleteCurrentEvent);
+        elements.saveDeviceName.addEventListener("click", () => void saveDeviceName());
