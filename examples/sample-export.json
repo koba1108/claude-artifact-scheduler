@@ -1,0 +1,8 @@
+{
+  "format": "claude-artifact-scheduler-backup",
+  "schemaVersion": 1,
+  "exportedAt": 1787558400000,
+  "values": {
+    "schedule:v1:2026-08": "{\"schemaVersion\":1,\"updatedAt\":1787558400000,\"updatedBy\":\"サンプル端末\",\"events\":[{\"id\":\"sample-all-day\",\"date\":\"2026-08-26\",\"start\":null,\"end\":null,\"title\":\"サンプル終日予定\",\"memo\":\"インポート動作確認用\",\"color\":\"green\",\"createdAt\":1787558400000,\"updatedAt\":1787558400000,\"deleted\":false},{\"id\":\"sample-timed\",\"date\":\"2026-08-26\",\"start\":\"14:00\",\"end\":\"15:00\",\"title\":\"サンプル時刻予定\",\"memo\":\"実際の予定データではありません\",\"color\":\"blue\",\"createdAt\":1787558460000,\"updatedAt\":1787558460000,\"deleted\":false}]}"
+  }
+}
