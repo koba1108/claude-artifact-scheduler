@@ -880,6 +880,8 @@
         const parsedDate = new Date(`${value.date}T00:00:00`);
         if (Number.isNaN(parsedDate.getTime()) || localDateString(parsedDate) !== value.date) throw new Error("予定の日付が不正です。");
         if (!isTime(value.start) || !isTime(value.end)) throw new Error("予定時刻が不正です。");
+        if (value.end !== null && value.start === null) throw new Error("終了時刻だけの予定は保存できません。");
+        if (value.start !== null && value.end !== null && value.end <= value.start) throw new Error("予定の終了時刻が開始時刻以前です。");
         if (typeof value.title !== "string" || !value.title.trim() || value.title.length > 120) throw new Error("予定タイトルが不正です。");
         if (typeof value.memo !== "string" || value.memo.length > 2000) throw new Error("予定メモが不正です。");
         if (!COLORS.includes(value.color)) throw new Error("予定色が不正です。");
@@ -1209,7 +1211,7 @@
             if (state.currentMonth === month) {
               state.monthData = {
                 ...savedData,
-                events: mergeEvents(savedData.events, state.monthData.events)
+                events: cleanExpiredTombstones(mergeEvents(savedData.events, state.monthData.events), Date.now())
               };
               state.loadCertainty = "known";
             }
