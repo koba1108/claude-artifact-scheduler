@@ -1,0 +1,324 @@
+          events: [],
+          month
+        };
+      }
+
+      function emptyMeta() {
+        return {
+          schemaVersion: SCHEMA_VERSION,
+          deviceName: null,
+          lastBackupAt: null
+        };
+      }
+
+      function monthKey(month) {
+        return `${APP_PREFIX}${month}`;
+      }
+
+      function brokenKey(month) {
+        return `${monthKey(month)}:broken:${Date.now()}`;
+      }
+
+      function localDateString(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+        return `${year}-${month}-${day}`;
+      }
+
+      function dateFromParts(year, monthIndex, day = 1) {
+        const date = new Date(year, monthIndex, day, 12, 0, 0, 0);
+        if (Number.isNaN(date.getTime())) throw new Error("Invalid date");
+        return date;
+      }
+
+      function parseMonth(month) {
+        const match = /^(\d{4})-(\d{2})$/.exec(month);
+        if (!match) throw new Error(`Invalid month: ${month}`);
+        return { year: Number(match[1]), monthIndex: Number(match[2]) - 1 };
+      }
+
+      function addMonths(month, amount) {
+        const { year, monthIndex } = parseMonth(month);
+        const next = dateFromParts(year, monthIndex + amount, 1);
+        return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}`;
+      }
+
+      function daysInMonth(month) {
+        const { year, monthIndex } = parseMonth(month);
+        return new Date(year, monthIndex + 1, 0).getDate();
+      }
+
+      function firstWeekday(month) {
+        const { year, monthIndex } = parseMonth(month);
+        return dateFromParts(year, monthIndex, 1).getDay();
+      }
+
+      function dateLabel(dateString) {
+        const [year, month, day] = dateString.split("-").map(Number);
+        const date = dateFromParts(year, month - 1, day);
+        const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
+        return `${month}月${day}日(${weekdays[date.getDay()]})`;
+      }
+
+      function monthLabel(month) {
+        const { year, monthIndex } = parseMonth(month);
+        return `${year}年${monthIndex + 1}月`;
+      }
+
+      function formatShortTimestamp(value) {
+        if (!Number.isFinite(value)) return "—";
+        return new Intl.DateTimeFormat("ja-JP", {
+          month: "numeric",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false
+        }).format(new Date(value));
+      }
+
+      function formatTimeOnly(value) {
+        if (!Number.isFinite(value)) return "—";
+        return new Intl.DateTimeFormat("ja-JP", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: undefined,
+          hour12: false
+        }).format(new Date(value));
+      }
+
+      function uuid() {
+        if (crypto && typeof crypto.randomUUID === "function") return crypto.randomUUID();
+        const bytes = new Uint8Array(16);
+        crypto.getRandomValues(bytes);
+        bytes[6] = (bytes[6] & 0x0f) | 0x40;
+        bytes[8] = (bytes[8] & 0x3f) | 0x80;
+        const hex = [...bytes].map((byte) => byte.toString(16).padStart(2, "0"));
+        return `${hex.slice(0, 4).join("")}-${hex.slice(4, 6).join("")}-${hex.slice(6, 8).join("")}-${hex.slice(8, 10).join("")}-${hex.slice(10).join("")}`;
+      }
+
+      function clone(value) {
+        return JSON.parse(JSON.stringify(value));
+      }
+
+      function deviceLabel() {
+        return state.sessionDeviceName.trim() || state.meta.deviceName || "この端末";
+      }
+
+      function isValidDateForMonth(value, month) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || !value.startsWith(`${month}-`)) return false;
+        const [year, monthNumber, day] = value.split("-").map(Number);
+        const date = dateFromParts(year, monthNumber - 1, day);
+        return localDateString(date) === value;
+      }
+
+      function isValidTime(value) {
+        return /^([01]\d|2[0-3]):[0-5]\d$/.test(value || "");
+      }
+
+      function normalizeEvent(raw, month) {
+        if (!raw || typeof raw !== "object") return null;
+        const id = typeof raw.id === "string" ? raw.id.trim().slice(0, 100) : "";
+        const date = typeof raw.date === "string" ? raw.date : "";
+        if (!id || !isValidDateForMonth(date, month)) return null;
+        const now = Date.now();
+        const color = Object.prototype.hasOwnProperty.call(COLORS, raw.color) ? raw.color : "blue";
+        const deleted = Boolean(raw.deleted);
+        const title = typeof raw.title === "string" ? raw.title.trim().slice(0, 120) : "";
+        if (!deleted && !title) return null;
+        const start = isValidTime(raw.start) ? raw.start : null;
+        const validEnd = isValidTime(raw.end) ? raw.end : null;
+        const end = start && validEnd && validEnd > start ? validEnd : null;
+        return {
+          id,
+          date,
+          start,
+          end,
+          title,
+          memo: typeof raw.memo === "string" ? raw.memo.slice(0, 2000) : "",
+          color,
+          createdAt: Number.isFinite(raw.createdAt) ? raw.createdAt : now,
+          updatedAt: Number.isFinite(raw.updatedAt) ? raw.updatedAt : now,
+          deleted
+        };
+      }
+
+      function normalizeMonthData(raw, month) {
+        if (!raw || typeof raw !== "object") throw new Error("月データがオブジェクトではありません");
+        if (raw.schemaVersion !== SCHEMA_VERSION) throw new Error(`未対応のschemaVersion: ${raw.schemaVersion}`);
+        if (!Array.isArray(raw.events)) throw new Error("eventsが配列ではありません");
+        const events = raw.events
+          .map((event) => normalizeEvent(event, month))
+          .filter(Boolean);
+        return {
+          schemaVersion: SCHEMA_VERSION,
+          updatedAt: Number.isFinite(raw.updatedAt) ? raw.updatedAt : null,
+          updatedBy: typeof raw.updatedBy === "string" && raw.updatedBy ? raw.updatedBy : null,
+          events,
+          month
+        };
+      }
+
+      function normalizeMeta(raw) {
+        if (!raw || typeof raw !== "object") throw new Error("metaがオブジェクトではありません");
+        if (raw.schemaVersion !== SCHEMA_VERSION) throw new Error(`未対応のmeta schemaVersion: ${raw.schemaVersion}`);
+        return {
+          schemaVersion: SCHEMA_VERSION,
+          deviceName: typeof raw.deviceName === "string" && raw.deviceName ? raw.deviceName.slice(0, 40) : null,
+          lastBackupAt: Number.isFinite(raw.lastBackupAt) ? raw.lastBackupAt : null
+        };
+      }
+
+      function parseStorageValue(value) {
+        if (typeof value !== "string") throw new Error("ストレージ値が文字列ではありません");
+        return JSON.parse(value);
+      }
+
+      function chooseNewerEvent(current, candidate) {
+        if (!current) return candidate;
+        const currentUpdatedAt = current.updatedAt || 0;
+        const candidateUpdatedAt = candidate.updatedAt || 0;
+        if (candidateUpdatedAt > currentUpdatedAt) return candidate;
+        if (candidateUpdatedAt < currentUpdatedAt) return current;
+        if (candidate.deleted && !current.deleted) return candidate;
+        if (current.deleted && !candidate.deleted) return current;
+        return JSON.stringify(candidate) > JSON.stringify(current) ? candidate : current;
+      }
+
+      function mergeEvents(...eventLists) {
+        const byId = new Map();
+        for (const list of eventLists) {
+          for (const event of list || []) {
+            if (!event || !event.id) continue;
+            byId.set(event.id, clone(chooseNewerEvent(byId.get(event.id), event)));
+          }
+        }
+        return [...byId.values()];
+      }
+
+      function cleanTombstones(events, now = Date.now()) {
+        return events.filter((event) => !event.deleted || now - event.updatedAt < TOMBSTONE_TTL_MS);
+      }
+
+      function visibleEvents() {
+        return state.monthData.events.filter((event) => !event.deleted);
+      }
+
+      function eventsForDate(date) {
+        return visibleEvents()
+          .filter((event) => event.date === date)
+          .sort((a, b) => {
+            const aTime = a.start || "";
+            const bTime = b.start || "";
+            if (!a.start && b.start) return -1;
+            if (a.start && !b.start) return 1;
+            if (aTime !== bTime) return aTime.localeCompare(bTime);
+            return a.createdAt - b.createdAt;
+          });
+      }
+
+      function setStatus(kind, message, note = state.syncNote) {
+        state.status = { kind, message };
+        state.syncNote = note || "";
+        renderSync();
+      }
+
+      function renderSync() {
+        elements.statusPill.dataset.kind = state.status.kind;
+        elements.statusPill.textContent = state.status.message;
+        elements.retrySave.hidden = state.status.kind !== "error" || state.pendingOperations.length === 0;
+
+        const updatedAt = state.monthData.updatedAt;
+        const updatedBy = state.monthData.updatedBy;
+        elements.remoteUpdated.textContent = updatedAt
+          ? `データ更新: ${formatShortTimestamp(updatedAt)}${updatedBy ? ` (${updatedBy})` : ""}`
+          : "データ更新: 未保存";
+        elements.lastFetched.textContent = state.lastFetchedAt
+          ? `この端末の取得: ${formatTimeOnly(state.lastFetchedAt)}`
+          : "この端末の取得: —";
+        elements.syncNote.textContent = state.syncNote;
+        elements.syncNote.hidden = !state.syncNote;
+      }
+
+      function renderCalendar() {
+        elements.monthTitle.textContent = monthLabel(state.currentMonth);
+        elements.calendarGrid.textContent = "";
+        const offset = firstWeekday(state.currentMonth);
+        const totalDays = daysInMonth(state.currentMonth);
+        const eventMap = new Map();
+        for (const event of visibleEvents()) {
+          if (!eventMap.has(event.date)) eventMap.set(event.date, []);
+          eventMap.get(event.date).push(event);
+        }
+
+        const cellCount = Math.max(35, Math.ceil((offset + totalDays) / 7) * 7);
+        for (let index = 0; index < cellCount; index += 1) {
+          const day = index - offset + 1;
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "day-cell";
+          button.setAttribute("role", "gridcell");
+
+          if (day < 1 || day > totalDays) {
+            button.dataset.empty = "true";
+            button.disabled = true;
+            button.setAttribute("aria-hidden", "true");
+            elements.calendarGrid.append(button);
+            continue;
+          }
+
+          const date = `${state.currentMonth}-${String(day).padStart(2, "0")}`;
+          const weekday = index % 7;
+          button.dataset.sunday = String(weekday === 0);
+          button.dataset.saturday = String(weekday === 6);
+          button.dataset.selected = String(date === state.selectedDate);
+          button.dataset.today = String(date === today);
+          button.dataset.date = date;
+          button.setAttribute("aria-label", `${dateLabel(date)}${eventMap.has(date) ? `、予定${eventMap.get(date).length}件` : ""}`);
+          button.setAttribute("aria-selected", String(date === state.selectedDate));
+
+          const number = document.createElement("span");
+          number.className = "day-number";
+          number.textContent = String(day);
+          button.append(number);
+
+          const dayEvents = eventMap.get(date) || [];
+          if (dayEvents.length) {
+            const dots = document.createElement("span");
+            dots.className = "event-dots";
+            dots.setAttribute("aria-hidden", "true");
+            for (const event of dayEvents.slice(0, 3)) {
+              const dot = document.createElement("span");
+              dot.className = "event-dot";
+              dot.style.setProperty("--dot-color", COLORS[event.color]?.value || COLORS.blue.value);
+              dots.append(dot);
+            }
+            button.append(dots);
+          }
+
+          button.addEventListener("click", () => {
+            state.selectedDate = date;
+            renderCalendar();
+            renderDay();
+          });
+          elements.calendarGrid.append(button);
+        }
+      }
+
+      function eventTimeLabel(event) {
+        if (!event.start) return "終日";
+        return event.end ? `${event.start}\n${event.end}` : event.start;
+      }
+
+      function renderDay() {
+        elements.dayTitle.textContent = dateLabel(state.selectedDate);
+        const events = eventsForDate(state.selectedDate);
+        elements.eventCount.textContent = `${events.length}件`;
+        elements.eventList.textContent = "";
+
+        if (!events.length) {
+          const empty = document.createElement("div");
+          empty.className = "empty-state";
+          empty.innerHTML = `
+            <div>
+              <div class="empty-state-icon" aria-hidden="true">○</div>
