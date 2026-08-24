@@ -1,0 +1,277 @@
+          <div class="status-pill" id="status-pill" data-kind="loading">読み込み中…</div>
+          <button class="retry-button" id="retry-save" type="button" hidden>再試行</button>
+        </div>
+        <div class="sync-meta">
+          <span id="remote-updated">データ更新: —</span>
+          <span id="last-fetched">この端末の取得: —</span>
+        </div>
+        <p class="sync-note" id="sync-note" hidden></p>
+      </section>
+
+      <aside class="notice" id="preview-notice" hidden>
+        <strong>プレビューモード:</strong> <code>window.storage</code> が見つからないため、メモリ上だけで動作しています。ページを閉じると予定は消えます。
+      </aside>
+
+      <section class="card calendar-card" aria-labelledby="month-title">
+        <div class="calendar-tools">
+          <button class="text-button" id="go-today" type="button">今日へ</button>
+        </div>
+        <div class="weekday-grid" aria-hidden="true">
+          <div class="weekday">日</div><div class="weekday">月</div><div class="weekday">火</div><div class="weekday">水</div><div class="weekday">木</div><div class="weekday">金</div><div class="weekday">土</div>
+        </div>
+        <div class="calendar-grid" id="calendar-grid" role="grid" aria-label="月カレンダー"></div>
+      </section>
+
+      <section class="card day-card" aria-labelledby="day-title">
+        <div class="day-card-head">
+          <div>
+            <p class="eyebrow">Schedule</p>
+            <h2 class="day-title" id="day-title">—</h2>
+          </div>
+          <span class="count-badge" id="event-count">0件</span>
+        </div>
+        <div id="event-list" class="event-list"></div>
+      </section>
+    </main>
+
+    <div class="action-dock" aria-label="主な操作">
+      <button class="settings-button" id="open-settings" type="button" aria-label="設定を開く">⚙</button>
+      <button class="add-button" id="add-event" type="button"><span class="plus" aria-hidden="true">＋</span>予定を追加</button>
+    </div>
+  </div>
+
+  <div class="modal-layer" id="event-modal" role="presentation" hidden>
+    <section class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="event-modal-title">
+      <header class="modal-head">
+        <h2 class="modal-title" id="event-modal-title">予定を追加</h2>
+        <button class="close-button" type="button" data-close-modal="event-modal" aria-label="閉じる">×</button>
+      </header>
+      <form class="modal-body form-grid" id="event-form" novalidate>
+        <input type="hidden" id="event-id" />
+        <label class="field">
+          <span class="field-label">日付</span>
+          <input class="input" id="event-date" type="date" required />
+          <span class="field-hint">月をまたぐ予定は、月ごとに2件へ分けて登録してください。</span>
+        </label>
+
+        <label class="check-row">
+          <input id="event-all-day" type="checkbox" />
+          終日予定
+        </label>
+
+        <div class="field" id="time-fields">
+          <span class="field-label">時刻</span>
+          <div class="time-row">
+            <label><span class="sr-only">開始時刻</span><input class="input" id="event-start" type="time" /></label>
+            <span class="time-separator">〜</span>
+            <label><span class="sr-only">終了時刻</span><input class="input" id="event-end" type="time" /></label>
+          </div>
+        </div>
+
+        <label class="field">
+          <span class="field-label">タイトル</span>
+          <input class="input" id="event-title" type="text" maxlength="120" autocomplete="off" required placeholder="例: 定例MTG" />
+        </label>
+
+        <label class="field">
+          <span class="field-label">メモ</span>
+          <textarea class="textarea" id="event-memo" maxlength="2000" placeholder="任意"></textarea>
+        </label>
+
+        <fieldset class="field" style="border:0;padding:0;margin:0">
+          <legend class="field-label">色</legend>
+          <div class="color-list" id="color-list"></div>
+        </fieldset>
+
+        <p class="form-error" id="event-form-error" role="alert"></p>
+
+        <div class="modal-actions">
+          <button class="button button-danger" id="delete-event" type="button" hidden>削除</button>
+          <button class="button button-secondary" type="button" data-close-modal="event-modal">キャンセル</button>
+          <button class="button button-primary" id="save-event" type="submit">保存</button>
+        </div>
+      </form>
+    </section>
+  </div>
+
+  <div class="modal-layer" id="settings-modal" role="presentation" hidden>
+    <section class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="settings-modal-title">
+      <header class="modal-head">
+        <h2 class="modal-title" id="settings-modal-title">設定とバックアップ</h2>
+        <button class="close-button" type="button" data-close-modal="settings-modal" aria-label="閉じる">×</button>
+      </header>
+      <div class="modal-body">
+        <section class="settings-section">
+          <h3 class="section-title">保存者ラベル</h3>
+          <p class="section-copy">予定の「更新元」に表示する名前です。ローカル保存を使わないため、この値は同じClaudeアカウント全体で共有されます。</p>
+          <label class="field">
+            <span class="field-label">ラベル</span>
+            <input class="input" id="device-name" type="text" maxlength="40" placeholder="例: スマホ / 自宅PC" />
+          </label>
+          <div class="inline-actions">
+            <button class="button button-primary" id="save-device-name" type="button">ラベルを保存</button>
+          </div>
+        </section>
+
+        <section class="settings-section">
+          <h3 class="section-title">エクスポート</h3>
+          <p class="section-copy"><code>schedule:v1:</code> 配下のキーをまとめてJSON化します。定期的に別の場所へ保管してください。</p>
+          <div class="inline-actions">
+            <button class="button button-primary" id="export-data" type="button">バックアップを作成</button>
+            <button class="button button-outline" id="copy-export" type="button" disabled>コピー</button>
+          </div>
+          <textarea class="textarea backup" id="export-output" readonly placeholder="ここにバックアップJSONが表示されます"></textarea>
+        </section>
+
+        <section class="settings-section">
+          <h3 class="section-title">インポート</h3>
+          <p class="section-copy">バックアップJSONを貼り付けると、イベントIDと更新時刻を使って月ごとにマージします。</p>
+          <textarea class="textarea backup" id="import-input" placeholder="バックアップJSONを貼り付け"></textarea>
+          <div class="inline-actions">
+            <button class="button button-primary" id="import-data" type="button">マージして読み込む</button>
+          </div>
+        </section>
+
+        <p class="settings-status" id="settings-status" role="status"></p>
+      </div>
+    </section>
+  </div>
+
+  <div class="toast" id="toast" role="status" hidden></div>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const APP_PREFIX = "schedule:v1:";
+      const META_KEY = `${APP_PREFIX}meta`;
+      const SCHEMA_VERSION = 1;
+      const SAVE_DEBOUNCE_MS = 800;
+      const TOMBSTONE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+      const STORAGE_VALUE_LIMIT_BYTES = 4.5 * 1024 * 1024;
+      const VISIBILITY_RELOAD_THROTTLE_MS = 15 * 1000;
+      const MONTH_KEY_PATTERN = /^schedule:v1:(\d{4}-\d{2})$/;
+      const COLORS = {
+        blue: { label: "青", value: "#4d5fe7" },
+        green: { label: "緑", value: "#1f9b67" },
+        orange: { label: "橙", value: "#e4822e" },
+        pink: { label: "桃", value: "#dc5e86" },
+        purple: { label: "紫", value: "#8a62d4" },
+        gray: { label: "灰", value: "#7b879e" }
+      };
+
+      const elements = {
+        monthTitle: document.querySelector("#month-title"),
+        prevMonth: document.querySelector("#prev-month"),
+        nextMonth: document.querySelector("#next-month"),
+        reload: document.querySelector("#reload"),
+        goToday: document.querySelector("#go-today"),
+        calendarGrid: document.querySelector("#calendar-grid"),
+        dayTitle: document.querySelector("#day-title"),
+        eventCount: document.querySelector("#event-count"),
+        eventList: document.querySelector("#event-list"),
+        statusPill: document.querySelector("#status-pill"),
+        retrySave: document.querySelector("#retry-save"),
+        remoteUpdated: document.querySelector("#remote-updated"),
+        lastFetched: document.querySelector("#last-fetched"),
+        syncNote: document.querySelector("#sync-note"),
+        previewNotice: document.querySelector("#preview-notice"),
+        addEvent: document.querySelector("#add-event"),
+        openSettings: document.querySelector("#open-settings"),
+        eventModal: document.querySelector("#event-modal"),
+        eventModalTitle: document.querySelector("#event-modal-title"),
+        eventForm: document.querySelector("#event-form"),
+        eventId: document.querySelector("#event-id"),
+        eventDate: document.querySelector("#event-date"),
+        eventAllDay: document.querySelector("#event-all-day"),
+        eventStart: document.querySelector("#event-start"),
+        eventEnd: document.querySelector("#event-end"),
+        eventTitle: document.querySelector("#event-title"),
+        eventMemo: document.querySelector("#event-memo"),
+        colorList: document.querySelector("#color-list"),
+        eventFormError: document.querySelector("#event-form-error"),
+        deleteEvent: document.querySelector("#delete-event"),
+        saveEvent: document.querySelector("#save-event"),
+        settingsModal: document.querySelector("#settings-modal"),
+        deviceName: document.querySelector("#device-name"),
+        saveDeviceName: document.querySelector("#save-device-name"),
+        exportData: document.querySelector("#export-data"),
+        copyExport: document.querySelector("#copy-export"),
+        exportOutput: document.querySelector("#export-output"),
+        importInput: document.querySelector("#import-input"),
+        importData: document.querySelector("#import-data"),
+        settingsStatus: document.querySelector("#settings-status"),
+        toast: document.querySelector("#toast")
+      };
+
+      const hasNativeStorage = Boolean(
+        window.storage &&
+        typeof window.storage.get === "function" &&
+        typeof window.storage.set === "function" &&
+        typeof window.storage.delete === "function" &&
+        typeof window.storage.list === "function"
+      );
+
+      const storage = hasNativeStorage
+        ? {
+            get: (key) => window.storage.get(key),
+            set: (key, value) => window.storage.set(key, value),
+            delete: (key) => window.storage.delete(key),
+            list: (prefix) => window.storage.list(prefix)
+          }
+        : createMemoryStorage();
+
+      const today = localDateString(new Date());
+      const initialMonth = today.slice(0, 7);
+
+      const state = {
+        currentMonth: initialMonth,
+        selectedDate: today,
+        monthData: emptyMonth(initialMonth),
+        meta: emptyMeta(),
+        sessionDeviceName: "",
+        lastFetchedAt: null,
+        status: { kind: "loading", message: "読み込み中…" },
+        syncNote: "",
+        pendingOperations: [],
+        operationSequence: 0,
+        saveTimer: null,
+        savePromise: null,
+        switchingMonth: false,
+        lastVisibilityReloadAt: 0,
+        activeModal: null,
+        previousFocus: null,
+        toastTimer: null
+      };
+
+      function createMemoryStorage() {
+        const memory = new Map();
+        return {
+          async get(key) {
+            if (!memory.has(key)) {
+              const error = new Error("Key not found");
+              error.code = "KEY_NOT_FOUND";
+              throw error;
+            }
+            return { key, value: memory.get(key), shared: false };
+          },
+          async set(key, value) {
+            memory.set(key, value);
+            return { key, value, shared: false };
+          },
+          async delete(key) {
+            const deleted = memory.delete(key);
+            return { key, deleted, shared: false };
+          },
+          async list(prefix = "") {
+            const keys = [...memory.keys()].filter((key) => key.startsWith(prefix)).sort();
+            return { keys, prefix, shared: false };
+          }
+        };
+      }
+
+      function emptyMonth(month) {
+        return {
+          schemaVersion: SCHEMA_VERSION,
+          updatedAt: null,
+          updatedBy: null,
