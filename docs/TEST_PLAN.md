@@ -121,7 +121,7 @@ node scripts/validate.mjs
 ```
 
 - [x] コマンドが終了コード0になる
-- [ ] GitHub Actionsのvalidate jobが成功する
+- [x] GitHub Actionsのvalidate jobが成功する
 
 ## 6. 実施記録
 
@@ -131,5 +131,5 @@ node scripts/validate.mjs
 |---|---|---|---|
 | 2026-08-24 | Chromium通常ブラウザ、380px / 1280px | 一部合格 | 追加、時刻検証、編集、月移動・手動再取得flush、テーマ、2か月export、copy、importを確認。IME、実削除、ページ再読み込みは未確認。 |
 | 2026-08-24 | `window.storage` 障害注入 | 合格 | 不確実取得時set 0回、set失敗後の保持・再試行、破損退避成功 / 失敗、別IDマージ、保存中の追加入力を確認。実APIではない。 |
-| 2026-08-24 | Node.js 22.22.1 | 合格 | `node scripts/validate.mjs` と `git diff --check` が成功。CIのNode.js 24はpush後に確認する。 |
+| 2026-08-24 | Node.js 22.22.1 / GitHub Actions Node.js 24 | 合格 | `node scripts/validate.mjs`、`git diff --check`、PR #1の `Validate artifact` が成功。 |
 | 2026-08-24 | Claude Artifact実機 / 複数端末 | 未実施 | 実Artifact作成、永続性、実API戻り値、複数端末同期は未確認。 |
