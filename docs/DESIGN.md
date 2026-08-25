@@ -4,18 +4,19 @@
 
 同じClaudeアカウントで開いた複数端末から、共通の個人スケジュールを読み書きできるHTML Artifactを提供する。
 
-- 実行物はルートの `artifact.html` 1ファイル
-- HTML、CSS、JavaScriptを分割しない
-- フロントエンドのみ、ビルドなし、外部依存なし
+- 実装はReact + TypeScript、スタイルはTailwind CSS
+- Bun + Viteでローカルbuildする
+- 実行物はGitへ含める `dist/index.html` 1ファイル
+- React、JavaScript、CSSはbuild時に実行物へ内包する
+- フロントエンドのみで、runtimeの外部依存とサーバーを持たない
 - 永続化は個人スコープの `window.storage` だけ
 - ローカル端末には予定・設定を永続化しない
 - 同期は保存時、手動再取得、条件を満たすタブ復帰時に行う
 
 ## 2. 実行環境の境界
 
-アプリ本体には次を追加しない。
+本番実行物には次を追加しない。
 
-- npm、bun、バンドラ、フレームワーク
 - サーバー、DB、独自認証
 - 外部JavaScript、CSS、画像、フォント
 - 外部APIへの予定送信
@@ -24,6 +25,23 @@
 - `window.storage` の第2引数 `shared`
 
 通常ブラウザでは `window.storage` が存在しない場合だけ、ページ内 `Map` を使う。プレビュー用データは再読み込みで消える。
+
+### 2.1 ビルドと配布の境界
+
+開発依存は `package.json` と `bun.lock` で管理する。`vite-plugin-singlefile` によりReact bundleとTailwind CSSを1つのHTMLへ内包し、`dist/` には `index.html` 以外を出力しない。
+
+```text
+src/ + index.html
+        │ bun run build
+        ▼
+dist/index.html ── Gitへcommit ── GitHub repositoryから配布
+```
+
+- `dist/index.html` は生成物としてGitへ含め、直接編集しない。
+- local pre-commit hookは `bun run verify` 後に生成物をstageする。
+- local pre-push hookは再build後に未commit差分がないことを確認する。
+- GitHub Actionsによるbuild差分checkは行わない。
+- 実行時にはpackage manager、dev server、CDNを必要としない。
 
 ## 3. window.storageアダプター
 
@@ -106,7 +124,7 @@ type Meta = {
 
 ## 5. 画面内状態
 
-外部ライブラリを使わず、単一 `state` で管理する。
+Reactのstateとrefで管理する。永続データと保存制御の責務を分け、保存処理からは最新のrefを参照する。
 
 - `currentMonth` / `selectedDate`
 - `monthData` / `meta`
@@ -237,7 +255,5 @@ exportはbrokenキーを含めてprefix配下を保全する。importは正規�
 - 削除tombstoneが古い通常イベントに負けない
 - 破損原文を退避成功後だけ復旧する
 - export / importで既存イベントを消さない
-- `node scripts/validate.mjs` が成功する
+- `bun run verify` が成功し、`dist/` に `index.html` だけが生成される
 - 実Artifactで閉じ直し、複数端末同期、障害系を確認する
-
-具体的な証跡は [`TEST_PLAN.md`](./TEST_PLAN.md) へ記録する。

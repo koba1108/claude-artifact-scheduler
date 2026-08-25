@@ -4,18 +4,36 @@
 
 ## 最優先の制約
 
-1. 本番実行物はルートの `artifact.html` 1ファイルとする。
-2. ビルド工程、npm依存、サーバーサイド処理を追加しない。
-3. 外部ライブラリを追加しない。必要性が生じた場合も、実装前に理由と代替案を提示する。
-4. `localStorage`、`sessionStorage`、IndexedDB、Cookieへ予定・設定を保存しない。
-5. 永続化は個人スコープの `window.storage` だけを使い、第2引数 `shared` は渡さない。
-6. ストレージキーは `schedule:v1:` prefixを維持し、スキーマ変更は新versionの移行設計を伴わせる。
-7. 月データは月単位の1キーへまとめ、イベントごとの細かいAPI呼び出しを増やさない。
-8. `get` は必ず例外を捕捉し、`set` のnullと例外を保存失敗として扱う。
-9. ユーザー入力を保存失敗時に画面上へ保持し、失われる条件を明示する。
-10. UI文言は日本語、モバイル幅380pxを基準、inputのfont-sizeは16px以上とする。
-11. 日付文字列はローカル時間の年月日から組み立て、UTC変換を使わない。
-12. 自動ポーリング、外部通信、外部アセットを追加しない。
+1. 本番実行物は `dist/index.html` 1ファイルとし、Gitへ含める。
+2. 実装はReact + TypeScript、ビルドはVite、スタイルはTailwind CSS、package managerとスクリプト実行はBunを使う。
+3. `dist/index.html` は生成物であり直接編集しない。`src/` などのソースを変更して `bun run build` で更新する。
+4. 本番実行物へ外部JavaScript、CSS、画像、フォント、通信先を残さない。React等の依存はビルド時に単一HTMLへ内包する。
+5. サーバーサイド処理を追加しない。
+6. `localStorage`、`sessionStorage`、IndexedDB、Cookieへ予定・設定を保存しない。
+7. 永続化は個人スコープの `window.storage` だけを使い、第2引数 `shared` は渡さない。
+8. ストレージキーは `schedule:v1:` prefixを維持し、スキーマ変更は新versionの移行設計を伴わせる。
+9. 月データは月単位の1キーへまとめ、イベントごとの細かいAPI呼び出しを増やさない。
+10. `get` は必ず例外を捕捉し、`set` のnullと例外を保存失敗として扱う。
+11. ユーザー入力を保存失敗時に画面上へ保持し、失われる条件を明示する。
+12. UI文言は日本語、モバイル幅380pxを基準、inputのfont-sizeは16px以上とする。
+13. 日付文字列はローカル時間の年月日から組み立て、UTC変換を使わない。
+14. 自動ポーリング、外部通信、外部アセットを追加しない。
+
+## ビルドと配布
+
+- `bun.lock` をGitへ含め、通常は `bun install --frozen-lockfile` で再現する。
+- `vite-plugin-singlefile` を維持し、`dist/` には `index.html` 以外を出力しない。
+- GitHub Actionsでビルド差分を確認しない。ローカルのpre-commit / pre-push hookと `bun run verify` を正とする。
+- 初回checkout後に `bun run hooks:install` を実行して `.githooks` を有効化する。
+- 配布元はGitHub repositoryに含まれる `dist/index.html` とする。
+- 依存追加・更新時は単一HTML、外部通信なし、ファイルサイズ上限、Bun lockfileを再検証する。
+
+## 文書管理
+
+- repositoryへ残す文書は、利用方法、実装仕様、実装・検証ルールに限定する。
+- 引き継ぎ書、ロードマップ、着手前メモ、進捗表、テスト実施記録、検証証跡のスクリーンショットをcommitしない。
+- 恒久的な仕様変更は `docs/DESIGN.md`、実装ルール変更は `AGENTS.md`、利用・build手順変更は `README.md` へ反映する。
+- 一時的な作業メモや検証結果はrepository外で管理する。
 
 ## データ整合性
 
@@ -42,17 +60,19 @@
 ## 変更時の手順
 
 1. `docs/DESIGN.md` と関連仕様を確認する。
-2. `artifact.html` を変更する。
-3. 必要に応じてREADME・設計・テスト手順も同期して更新する。
-4. `node scripts/validate.mjs` を実行する。
-5. 380px幅とPC幅で主要操作を手動確認する。
-6. 実 `window.storage` に関係する変更は、Claude Artifact実機で未検証ならその旨をPRへ明記する。
+2. `src/` と必要な設定・文書・テストを変更する。
+3. `bun run verify` を実行し、`dist/index.html` を再生成・検証する。
+4. `git diff --check` を実行する。
+5. `dist/` が `index.html` 1ファイルだけであることを確認する。
+6. 380px幅とPC幅で主要操作を手動確認する。
+7. 実 `window.storage` に関係する変更は、Claude Artifact実機で未検証ならその旨をPRへ明記する。
 
 ## 禁止する変更例
 
-- React/Vite/Next.js等への移行
-- package managerやbundlerの導入
+- `dist/index.html` の手編集
+- runtimeでCDNや外部アセットを参照する実装
 - 月ごとではなくイベントごとに `window.storage.set` を呼ぶ設計
 - 自動同期の定期ポーリング
 - サーバー、DB、認証基盤の追加
 - エラー時に空データを無言で保存して既存データを消す挙動
+- 明示的な方針変更なしにGitHub Actionsのビルド必須checkを戻すこと
