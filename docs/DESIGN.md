@@ -257,5 +257,3 @@ exportはbrokenキーを含めてprefix配下を保全する。importは正規�
 - export / importで既存イベントを消さない
 - `bun run verify` が成功し、`dist/` に `index.html` だけが生成される
 - 実Artifactで閉じ直し、複数端末同期、障害系を確認する
-
-具体的な証跡は [`TEST_PLAN.md`](./TEST_PLAN.md) へ記録する。

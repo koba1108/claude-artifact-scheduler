@@ -4,7 +4,7 @@ Claude Artifactの個人スコープ `window.storage` を使い、同じClaude�
 
 開発はReact + TypeScript + Vite + Tailwind CSS + Bunで行い、本番成果物はGitへ含める [`dist/index.html`](./dist/index.html) 1ファイルです。ReactやCSSはビルド時に内包されるため、実行時のpackage install、独自サーバー、CDN、外部アセットは不要です。
 
-## 実装済み
+## 機能仕様
 
 - モバイルファーストの月カレンダーと日別予定一覧
 - 予定の追加・編集・論理削除
@@ -135,12 +135,6 @@ bun run validate
 
 設定画面の「バックアップを作成」で `schedule:v1:` 配下をJSONへ書き出します。インポートは正規の月キーだけを対象に、既存イベントを消さずIDと更新時刻でマージします。brokenキーを現行データへ戻しません。
 
-## 現在の確認範囲
-
-2026-08-25にReact版の型検査、14件のBunテスト、単一HTMLビルド、静的検証を実施しています。通常ブラウザの380px幅では、追加、時刻あり予定、空タイトル検証、月移動時flush、ダークテーマ、バックアップ作成、横スクロールなしを確認しています。
-
-これらはAnthropic側の実 `window.storage` の証明ではありません。Artifactを閉じた後の永続性、実APIの例外・戻り値、同一アカウントの複数端末同期は、Claude Artifact実環境でのみ確認できます。実施結果と未確認項目は [`docs/TEST_PLAN.md`](./docs/TEST_PLAN.md) に記録します。
-
 ## 既知の制約
 
 - プッシュ同期、定期ポーリング、端末時計補正はない
@@ -148,8 +142,6 @@ bun run validate
 - 他ユーザー共有、外部カレンダー連携は非対応
 - 保存者ラベルは端末固有ではなく、同一アカウント内で共有される
 - 通常ブラウザのプレビューデータは再読み込みで消える
-
-将来候補は [`docs/ROADMAP.md`](./docs/ROADMAP.md) に分離しています。P0の実環境確認が終わるまで追加機能を優先しません。
 
 ## リポジトリ構成
 
@@ -164,9 +156,8 @@ bun run validate
 ├── tsconfig.json
 ├── .githooks/              # ローカルpre-commit / pre-push
 ├── scripts/                # hook設定と生成物validator
-├── docs/                   # 設計・テスト・ロードマップ
+├── docs/DESIGN.md          # 実装設計の正本
 ├── examples/
-├── HANDOFF.md
-├── AGENTS.md
-└── mobile-preview.png
+├── AGENTS.md               # 実装・検証時の必須ルール
+└── CLAUDE.md               # Claude Code向けの入口
 ```
