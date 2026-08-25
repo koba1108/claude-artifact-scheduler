@@ -1,32 +1,48 @@
 # Claude Artifact Scheduler 引き継ぎ
 
-更新日: 2026-08-24
+更新日: 2026-08-25
 対象: `https://github.com/koba1108/claude-artifact-scheduler`
 
 ## 目的
 
-Claude Artifact上で動作する個人向けスケジュール管理アプリを完成させ、静的検証、通常ブラウザQA、Claude Artifact実環境の受け入れ試験を行う。
+Claude Artifact上で動作する個人向けスケジュール管理アプリを、ローカルで実装・検証・ビルドし、GitHub repositoryから単一HTMLとして配布する。
 
-新しいリポジトリは作成しない。作業先は `koba1108/claude-artifact-scheduler` に統一する。
+新しいrepositoryは作成しない。作業先は `koba1108/claude-artifact-scheduler` に統一する。
+
+## 2026-08-25の方針変更
+
+旧構成のルート `artifact.html` 直編集から、React + TypeScript + Vite + Tailwind CSS + Bunへ移行した。Viteのsingle-file buildにより、最終成果物は引き続き自己完結したHTML 1ファイルを維持する。
+
+- ソース: `src/`
+- 開発entry: `index.html`
+- 配布物: `dist/index.html`
+- package manager / script runner: Bun
+- build: Vite + `vite-plugin-singlefile`
+- style: Tailwind CSS
+- CI build: なし
+- build差分の防止: repository内のpre-commit / pre-push hook
+- 配布: GitHub repositoryへ `dist/index.html` を含めてpush
 
 ## 現在の構成
 
-- `artifact.html`: HTML、CSS、JavaScriptを含む本番成果物
-- `README.md`: 利用方法、検証、制約、現在の確認範囲
-- `AGENTS.md`: コーディングエージェント向け必須ルール
-- `CLAUDE.md`: Claude Code向け入口
-- `docs/DESIGN.md`: ストレージ、スキーマ、保存、マージ、復旧の正本
+- `src/App.tsx`: React UIと画面内保存制御
+- `src/domain.ts`: 日付、検証、イベントマージ、tombstone、import解析
+- `src/storage.ts`: 個人スコープ `window.storage` と安全な読み込み・破損復旧
+- `src/*.test.ts`: Bunのdomain / storage unit test
+- `dist/index.html`: JavaScriptとCSSを内包した本番成果物
+- `vite.config.ts`: 単一HTMLのbuild設定
+- `scripts/validate.mjs`: 生成物とソースの静的検証
+- `scripts/install-hooks.sh`: `.githooks` の有効化
+- `.githooks/pre-commit`: 検証、build、生成物stage
+- `.githooks/pre-push`: 再検証、未commit生成差分の拒否
+- `docs/DESIGN.md`: ストレージ、スキーマ、保存、マージ、復旧、buildの正本
 - `docs/TEST_PLAN.md`: 通常ブラウザと実Artifactの受け入れ手順・記録
-- `docs/ROADMAP.md`: P0後の候補
-- `scripts/validate.mjs`: 依存なし静的検証
-- `.github/workflows/validate.yml`: Node.js 24のCI
-- `examples/sample-export.json`: インポート確認用サンプル
-- `mobile-preview.png`: 380px表示の参考画像
 
 ## 絶対条件
 
-- 本番成果物は `artifact.html` の単一ファイル
-- ビルド工程、package manager、フレームワーク、外部依存、サーバーを追加しない
+- 本番成果物は `dist/index.html` の単一ファイル
+- 生成物を手編集せず、React / TypeScriptソースからbuildする
+- 本番実行時の外部依存、CDN、外部アセット、サーバーを追加しない
 - 予定・設定の永続化は個人スコープの `window.storage` だけ
 - `window.storage` の第2引数 `shared` を渡さない
 - ブラウザ側の永続ストレージやCookieを使わない
@@ -49,21 +65,31 @@ Claude Artifact上で動作する個人向けスケジュール管理アプリ�
 7. 保存開始後に追加された操作は完了済み操作と一緒に消さない。
 8. 保存失敗時は入力とpending operationを画面内に保持する。
 
-## 検証
-
-依存関係の導入は不要。
+## 初回セットアップと検証
 
 ```bash
-node scripts/validate.mjs
+bun install --frozen-lockfile
+bun run hooks:install
+bun run verify
+git diff --check
 ```
 
-期待する最終行:
+`bun run verify` は型検査、14件のunit test、build、生成物validatorを実行する。期待するvalidatorの最終行は次のとおり。
 
 ```text
 All validations passed.
 ```
 
 通常ブラウザでは揮発性プレビューになる。再読み込みで予定が消えることは期待動作で、実Artifactの永続性を証明しない。
+
+## Git運用
+
+CIへbuild差分checkは置かない。hookはローカル設定なので、cloneごとに `bun run hooks:install` が必要。
+
+- commit時に `dist/index.html` が自動再生成・stageされる。
+- push時に同じ検証を再実行する。
+- build後の `dist/index.html` に未commit差分があればpushを停止する。
+- commit / push / PR作成は、それぞれ明示的な依頼範囲を守る。
 
 ## 実環境で優先確認する項目
 
@@ -84,9 +110,10 @@ All validations passed.
 3. `README.md`
 4. `docs/DESIGN.md`
 5. `docs/TEST_PLAN.md`
-6. `git status -sb` と現在のPR / CI
-7. `node scripts/validate.mjs`
-8. 380pxとPC幅の通常ブラウザQA
-9. Claude Artifact実機と複数端末QA
+6. `git status -sb`
+7. `bun install --frozen-lockfile`
+8. `bun run verify`
+9. 380pxとPC幅の通常ブラウザQA
+10. Claude Artifact実機と複数端末QA
 
 P0の受け入れが終わるまで、繰り返し予定などへスコープを広げない。

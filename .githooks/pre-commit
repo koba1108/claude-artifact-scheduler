@@ -1,0 +1,9 @@
+#!/bin/sh
+set -eu
+
+repo_root=$(git rev-parse --show-toplevel)
+cd "$repo_root"
+
+echo "Building the distributable artifact before commit..."
+bun run verify
+git add -- dist/index.html

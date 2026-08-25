@@ -1,8 +1,8 @@
 # Claude Artifact Scheduler
 
-Claude Artifact の個人スコープ `window.storage` を使い、同じClaudeアカウントで開いた複数端末から予定を読み書きする、個人向け月間スケジュール管理アプリです。
+Claude Artifactの個人スコープ `window.storage` を使い、同じClaudeアカウントで開いた複数端末から予定を読み書きする、個人向け月間スケジュール管理アプリです。
 
-本番実行物は [`artifact.html`](./artifact.html) 1ファイルです。HTML・CSS・JavaScriptをすべて内包し、ビルド、パッケージ導入、独自サーバー、外部ライブラリを必要としません。
+開発はReact + TypeScript + Vite + Tailwind CSS + Bunで行い、本番成果物はGitへ含める [`dist/index.html`](./dist/index.html) 1ファイルです。ReactやCSSはビルド時に内包されるため、実行時のpackage install、独自サーバー、CDN、外部アセットは不要です。
 
 ## 実装済み
 
@@ -22,45 +22,68 @@ Claude Artifact の個人スコープ `window.storage` を使い、同じClaude�
 - 全キーのJSONエクスポート、コピー、月単位マージインポート
 - 通常ブラウザ向けの揮発性メモリプレビュー
 
-## Claude Artifactで使う
+## セットアップ
 
-1. [`artifact.html`](./artifact.html) の全文をClaudeのHTML Artifactへ貼り付ける。
-2. Artifactを開き、右上の設定から保存者ラベルを設定する。
-3. 予定を追加し、「保存完了」と更新日時が表示されることを確認する。
-4. 同じClaudeアカウントの別端末で同じArtifactを開く。
-5. 他端末の変更は右上の再読み込みボタン、または15秒以上離れてからのタブ復帰で取得する。
-
-予定と設定は `window.storage` だけへ保存します。第2引数の共有スコープは指定しません。端末側の永続ストレージ、Cookie、外部APIは使いません。
-
-## ローカルプレビュー
-
-`artifact.html` を通常ブラウザで開くか、任意の静的HTTPサーバーから配信します。
+[Bun](https://bun.sh/)を用意し、checkout後に依存関係とローカルGit hookを設定します。
 
 ```bash
-python3 -m http.server 4173
+bun install --frozen-lockfile
+bun run hooks:install
 ```
 
-ブラウザで `http://127.0.0.1:4173/artifact.html` を開きます。`window.storage` がない環境では、ページ内の `Map` だけを使う「プレビューモード」になります。追加・編集・削除・入出力は確認できますが、再読み込みすると予定は消えます。これは期待動作です。
-
-## 静的検証
-
-依存関係のインストールは不要です。Node.js 24をCIで使用します。
+開発サーバー:
 
 ```bash
-node scripts/validate.mjs
+bun run dev
 ```
 
-検証内容:
+Viteが表示するローカルURLをブラウザで開きます。`window.storage` がないため、通常ブラウザではページ内の `Map` だけを使う「プレビューモード」になります。追加・編集・削除・入出力は確認できますが、再読み込みすると予定は消えます。
 
-- `artifact.html` が完全な単一HTMLで5MB未満
-- 外部JavaScript、外部CSS、外部メディア、外部通信がない
+## ビルドと検証
+
+```bash
+bun run verify
+```
+
+この1コマンドでTypeScript型検査、Bunテスト、Viteビルド、生成物の静的検証を順に行います。生成先は `dist/index.html` です。
+
+静的検証では次を確認します。
+
+- `dist/` が完全な単一HTMLだけで、1MB未満
+- JavaScriptとCSSがインライン化され、外部JavaScript、CSS、メディア、通信がない
 - 端末側の永続ストレージ、Cookie、自動ポーリング、UTC日付変換を使っていない
 - `window.storage` の4メソッドを個人スコープで呼ぶ
 - 必須画面、保存・同期安全策、キー形式が存在する
 - フォーム要素の文字サイズが16px以上
-- インラインJavaScriptの構文が有効
 
-GitHub Actionsでも同じコマンドを実行します。
+個別コマンドも利用できます。
+
+```bash
+bun run typecheck
+bun test
+bun run build
+bun run validate
+```
+
+## ローカルhookとGitHub配布
+
+このrepositoryではCIによるビルド差分checkを行いません。ローカルのhookを正とします。
+
+- pre-commit: `bun run verify` を実行し、生成した `dist/index.html` をstageする
+- pre-push: `bun run verify` を再実行し、生成物に未commit差分があればpushを止める
+
+これにより、ソースとビルド済み成果物を同じcommitでGitHubへpushできます。利用者はGitHub repositoryをclone/downloadし、`dist/index.html` をそのまま取得できます。GitHub Pagesや専用配布サーバーは前提にしません。
+
+## Claude Artifactで使う
+
+1. GitHub repositoryの `dist/index.html` を取得する。
+2. ファイルの全文をClaudeのHTML Artifactへ貼り付ける。
+3. Artifactを開き、右上の設定から保存者ラベルを設定する。
+4. 予定を追加し、「保存完了」と更新日時が表示されることを確認する。
+5. 同じClaudeアカウントの別端末で同じArtifactを開く。
+6. 他端末の変更は右上の再読み込みボタン、または15秒以上離れてからのタブ復帰で取得する。
+
+予定と設定は `window.storage` だけへ保存します。第2引数の共有スコープは指定しません。端末側の永続ストレージ、Cookie、外部APIは使いません。
 
 ## 保存キー
 
@@ -110,27 +133,13 @@ GitHub Actionsでも同じコマンドを実行します。
 
 ## バックアップ
 
-設定画面の「バックアップを作成」で `schedule:v1:` 配下を次の形式へ書き出します。
+設定画面の「バックアップを作成」で `schedule:v1:` 配下をJSONへ書き出します。インポートは正規の月キーだけを対象に、既存イベントを消さずIDと更新時刻でマージします。brokenキーを現行データへ戻しません。
 
-```json
-{
-  "format": "claude-artifact-scheduler-backup",
-  "schemaVersion": 1,
-  "exportedAt": 1787558400000,
-  "values": {
-    "schedule:v1:2026-08": "{...JSON文字列...}",
-    "schedule:v1:meta": "{...JSON文字列...}"
-  }
-}
-```
+## 現在の確認範囲
 
-インポートは正規の月キーだけを対象に、既存イベントを消さずIDと更新時刻でマージします。brokenキーを現行データへ戻しません。
+2026-08-25にReact版の型検査、14件のBunテスト、単一HTMLビルド、静的検証を実施しています。通常ブラウザの380px幅では、追加、時刻あり予定、空タイトル検証、月移動時flush、ダークテーマ、バックアップ作成、横スクロールなしを確認しています。
 
-## 現在の実機確認範囲
-
-2026-08-24に、380px / 1280pxの通常ブラウザで追加、時刻検証、編集、月移動・手動再取得時のflush、テーマ、2か月export、copy、merge importを確認しました。障害注入では、不確実な読み込み時に `set` が0回であること、set失敗後の保持と再試行、破損退避の成功 / 失敗、別IDマージ、保存中の追加入力を確認しています。静的検証も成功しています。
-
-これらはAnthropic側の実 `window.storage` の証明ではありません。Artifactを閉じた後の永続性、実APIの例外・戻り値、同一アカウントの複数端末同期は、Claude Artifact実環境でのみ確認できます。実施結果と未確認項目は [`docs/TEST_PLAN.md`](./docs/TEST_PLAN.md) に記録しています。
+これらはAnthropic側の実 `window.storage` の証明ではありません。Artifactを閉じた後の永続性、実APIの例外・戻り値、同一アカウントの複数端末同期は、Claude Artifact実環境でのみ確認できます。実施結果と未確認項目は [`docs/TEST_PLAN.md`](./docs/TEST_PLAN.md) に記録します。
 
 ## 既知の制約
 
@@ -146,19 +155,18 @@ GitHub Actionsでも同じコマンドを実行します。
 
 ```text
 .
-├── artifact.html
-├── HANDOFF.md
-├── README.md
-├── AGENTS.md
-├── CLAUDE.md
-├── docs/
-│   ├── DESIGN.md
-│   ├── TEST_PLAN.md
-│   └── ROADMAP.md
+├── src/                    # React / TypeScriptソースとBunテスト
+├── index.html              # Viteの開発用entry
+├── dist/index.html         # GitHubから配布する単一HTML
+├── package.json
+├── bun.lock
+├── vite.config.ts
+├── tsconfig.json
+├── .githooks/              # ローカルpre-commit / pre-push
+├── scripts/                # hook設定と生成物validator
+├── docs/                   # 設計・テスト・ロードマップ
 ├── examples/
-│   └── sample-export.json
-├── scripts/
-│   └── validate.mjs
-├── mobile-preview.png
-└── .github/workflows/validate.yml
+├── HANDOFF.md
+├── AGENTS.md
+└── mobile-preview.png
 ```

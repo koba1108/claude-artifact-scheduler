@@ -1,0 +1,13 @@
+#!/bin/sh
+set -eu
+
+repo_root=$(git rev-parse --show-toplevel)
+cd "$repo_root"
+
+echo "Verifying the committed distributable artifact before push..."
+bun run verify
+
+if ! git diff --quiet -- dist/index.html || ! git diff --cached --quiet -- dist/index.html; then
+  echo "dist/index.html changed during verification. Commit the generated file before pushing." >&2
+  exit 1
+fi

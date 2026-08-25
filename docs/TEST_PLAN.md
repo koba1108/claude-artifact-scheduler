@@ -2,7 +2,7 @@
 
 ## 1. 通常ブラウザのプレビューモード
 
-`artifact.html` をブラウザで開く。黄色い「プレビューモード」表示が出ることを確認する。
+`bun run build` 後の `dist/index.html` を静的HTTPサーバー、または `bun run dev` で開く。黄色い「プレビューモード」表示が出ることを確認する。
 
 ### 基本表示
 
@@ -44,7 +44,7 @@
 
 ## 2. Claude Artifact実機
 
-`artifact.html` 全文をHTML Artifactへ反映する。同じArtifactの最新versionでテストする。
+`dist/index.html` 全文をHTML Artifactへ反映する。同じArtifactの最新versionでテストする。
 
 ### window.storage 基本動作
 
@@ -117,11 +117,17 @@
 ## 5. 静的検証
 
 ```bash
-node scripts/validate.mjs
+bun run verify
+git diff --check
 ```
 
-- [x] コマンドが終了コード0になる
-- [x] GitHub Actionsのvalidate jobが成功する
+- [x] TypeScript型検査が成功する
+- [x] Bun unit test 14件が成功する
+- [x] Viteが `dist/index.html` 1ファイルを生成する
+- [x] 生成物validatorが終了コード0になる
+- [x] `dist/index.html` にruntime外部依存・外部通信がない
+- [x] local Git hookを `.githooks` から有効化できる
+- [x] GitHub Actionsのbuild差分checkを使わない構成になっている
 
 ## 6. 実施記録
 
@@ -129,7 +135,9 @@ node scripts/validate.mjs
 
 | 日付 | 環境 | 結果 | 証跡・注記 |
 |---|---|---|---|
+| 2026-08-25 | React 19 / Vite 8 / Tailwind CSS 4 / Bun 1.3.14 | 合格 | 型検査、domain 9件 + storage 5件、single-file build、生成物validatorが成功。`dist/index.html` のみを生成。 |
+| 2026-08-25 | Chromium通常ブラウザ、380px / 1280px | 一部合格 | 両幅で横スクロールなし、PC 2カラム、空タイトル検証、終日・時刻あり追加、編集、`Cmd+Enter`、800ms保存、月移動時flush、ダークテーマ、backup作成、console errorなしを確認。プレビュー再読み込みと削除はデータ消去を伴うため今回未実施。 |
 | 2026-08-24 | Chromium通常ブラウザ、380px / 1280px | 一部合格 | 追加、時刻検証、編集、月移動・手動再取得flush、テーマ、2か月export、copy、importを確認。IME、実削除、ページ再読み込みは未確認。 |
 | 2026-08-24 | `window.storage` 障害注入 | 合格 | 不確実取得時set 0回、set失敗後の保持・再試行、破損退避成功 / 失敗、別IDマージ、保存中の追加入力を確認。実APIではない。 |
-| 2026-08-24 | Node.js 22.22.1 / GitHub Actions Node.js 24 | 合格 | `node scripts/validate.mjs`、`git diff --check`、PR #1の `Validate artifact` が成功。 |
+| 2026-08-24 | 旧単一ファイル実装 / GitHub Actions | 合格（履歴） | 移行前の `artifact.html` とCIに対する結果。現行のReact版は上記2026-08-25のlocal検証を正とする。 |
 | 2026-08-24 | Claude Artifact実機 / 複数端末 | 未実施 | 実Artifact作成、永続性、実API戻り値、複数端末同期は未確認。 |
