@@ -46,9 +46,9 @@ for (const [pattern, description] of forbiddenPatterns) {
 }
 
 for (const marker of [
-  "CLAUDE ARTIFACT",
-  "スケジュール",
   "予定を追加",
+  "予定を再読み込み",
+  "設定を開く",
   "設定とバックアップ",
   "保存失敗",
   "最終取得",
@@ -58,7 +58,7 @@ for (const marker of [
   assert.ok(html.includes(marker), `required artifact marker is missing: ${marker}`);
 }
 
-const sources = ["src/App.tsx", "src/domain.ts", "src/storage.ts", "src/types.ts", "src/styles.css"]
+const sources = ["src/App.tsx", "src/domain.ts", "src/navigation.ts", "src/storage.ts", "src/types.ts", "src/styles.css"]
   .map((path) => readFileSync(resolve(root, path), "utf8"))
   .join("\n");
 for (const marker of [
@@ -73,13 +73,19 @@ for (const marker of [
   "pendingRef",
   "SAVE_DEBOUNCE_MS",
   "navigator.clipboard.writeText",
+  "parseSchedulerView",
+  "aria-live=\"polite\"",
+  "focus-visible",
+  "touch-action: manipulation",
+  "overscroll-behavior: contain",
+  "prefers-reduced-motion: reduce",
 ]) {
   assert.ok(sources.includes(marker), `required source marker is missing: ${marker}`);
 }
 
 assert.doesNotMatch(sources, /\btoISOString\s*\(/, "source must build local dates without UTC conversion");
 assert.doesNotMatch(sources, /\bsetInterval\s*\(/, "source must not poll automatically");
-assert.match(readFileSync(resolve(root, "src/styles.css"), "utf8"), /\.field-input[\s\S]*text-base/, "form controls must use a 16px base font size");
+assert.match(readFileSync(resolve(root, "src/styles.css"), "utf8"), /\.field-input\s*\{\s*font-size:\s*16px/, "form controls must use a 16px base font size before nested field rules");
 
 function topLevelArgumentCount(source, openParenIndex) {
   let depth = 1;
