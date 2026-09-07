@@ -33,36 +33,26 @@ body {
   overflow-x: hidden;
 }
 
-button,
-input,
-select,
-textarea {
-  font: inherit;
-}
-
 button {
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 @layer components {
   .icon-button {
-    @apply flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-xl font-bold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700;
-  }
-
-  .icon-button-on-color {
-    @apply flex h-11 w-11 items-center justify-center rounded-2xl border border-white/25 bg-white/15 text-xl font-bold text-white backdrop-blur transition hover:bg-white/25 focus:outline-none focus:ring-2 focus:ring-white;
+    @apply flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-xl font-bold text-slate-700 transition hover:bg-slate-50 active:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700 dark:active:bg-slate-600;
   }
 
   .button-primary {
-    @apply inline-flex min-h-11 items-center justify-center rounded-2xl bg-blue-600 px-4 py-2.5 text-base font-black text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:ring-offset-slate-900;
+    @apply inline-flex min-h-11 items-center justify-center rounded-2xl bg-blue-600 px-4 py-2.5 text-base font-black text-white shadow-sm transition hover:bg-blue-700 active:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 dark:ring-offset-slate-900;
   }
 
   .button-secondary {
-    @apply inline-flex min-h-11 items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-base font-black text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700;
+    @apply inline-flex min-h-11 items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-base font-black text-slate-700 transition hover:bg-slate-50 active:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700 dark:active:bg-slate-600;
   }
 
   .button-danger {
-    @apply inline-flex min-h-11 items-center justify-center rounded-2xl bg-rose-600 px-4 py-2.5 text-base font-black text-white transition hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-500;
+    @apply inline-flex min-h-11 items-center justify-center rounded-2xl bg-rose-600 px-4 py-2.5 text-base font-black text-white transition hover:bg-rose-700 active:bg-rose-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .field-label {
@@ -70,15 +60,42 @@ button {
   }
 
   .field-input {
-    @apply mt-1.5 block min-h-11 w-full min-w-0 rounded-2xl border border-slate-300 bg-white px-3 py-2.5 text-base text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:disabled:bg-slate-900;
+    font-size: 16px;
+    @apply mt-1.5 block min-h-11 w-full min-w-0 rounded-2xl border border-slate-300 bg-white px-3 py-2.5 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:disabled:bg-slate-900;
+  }
+
+  .field-error {
+    @apply mt-1.5 block text-sm font-bold text-rose-600 dark:text-rose-400;
+  }
+
+  .settings-error {
+    @apply rounded-2xl bg-rose-50 p-3 text-sm font-bold text-rose-700 dark:bg-rose-950/50 dark:text-rose-200;
   }
 
   .modal-backdrop {
     @apply fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-slate-950/55 p-0 backdrop-blur-sm sm:items-center sm:p-4;
+    overscroll-behavior: contain;
   }
 
   .modal-panel {
     @apply w-full overflow-hidden rounded-t-3xl border border-white/20 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900 sm:rounded-3xl;
+    overscroll-behavior: contain;
+  }
+
+  .settings-modal-panel {
+    display: flex;
+    height: 100dvh;
+    max-height: 100dvh;
+    flex-direction: column;
+    border-radius: 0;
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .settings-modal-body {
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
 
   .modal-header {
@@ -91,16 +108,46 @@ button {
   }
 
   .theme-choice {
-    @apply min-h-12 rounded-2xl border border-slate-300 bg-white px-3 py-2 text-base font-black transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:hover:bg-slate-700;
+    @apply min-h-12 rounded-2xl border border-slate-300 bg-white px-3 py-2 text-base font-black transition hover:bg-slate-50 active:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:hover:bg-slate-700 dark:active:bg-slate-600;
   }
 
   .theme-choice-selected {
     @apply border-blue-600 bg-blue-50 text-blue-700 ring-2 ring-blue-500/20 dark:bg-blue-950/50 dark:text-blue-200;
+  }
+
+  .event-card {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 4.25rem;
   }
 }
 
 @media (max-width: 390px) {
   .modal-footer > button {
     flex: 1 1 auto;
+  }
+}
+
+@media (min-width: 640px) {
+  .settings-modal-panel {
+    height: auto;
+    max-height: calc(100dvh - 2rem);
+    border-radius: 1.5rem;
+    padding-top: 0;
+  }
+
+  .settings-modal-body {
+    flex: 0 1 auto;
+    max-height: 70vh;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
